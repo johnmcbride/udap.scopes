@@ -1,0 +1,68 @@
+@using Npgsql
+@using Dapper
+@inject Radzen.DialogService ds
+@inject IConfiguration Configuration
+
+<RadzenDataGrid 
+    Data="@DBScopes" 
+    TItem="Scope" 
+    SelectionMode="DataGridSelectionMode.Multiple"
+    @bind-Value="@selectedScopes">
+    <HeaderTemplate>
+        <RadzenButton Text="Add Scope" Click="@AddScopes" />
+    </HeaderTemplate>
+    <Columns>
+        <RadzenDataGridColumn TItem="Scope" Width="60px" Sortable="false" Filterable="false">
+            <HeaderTemplate>
+                <RadzenCheckBox TriState="false" TValue="bool" />
+            </HeaderTemplate>
+            <Template Context="data">
+                <RadzenCheckBox TriState="false" TValue="bool" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Scope" Property="Id" Title="Scope ID"></RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Scope" Property="Name" Title="Scope Name"></RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Scope" Property="ScopeSpec" Title="Scope Spec"></RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Scope" Property="Description" Title="Scope Description"></RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code 
+{
+    [Parameter]
+    public int ProfileId { get; set; }
+    public IEnumerable<Scope> DBScopes { get; set; }
+    IList<Scope> selectedScopes;
+    protected override async Task OnInitializedAsync()
+    {
+        await GetScopes();
+    }
+    public async Task AddScopes()
+    {
+        var dbConn = Configuration["POCSCOPES_connectionstrings:db"];
+        var pgConnection = new NpgsqlConnection(dbConn);
+        pgConnection.Open();
+ 
+        string sql = $"insert into profile2scopes (profileid,scopeid) values (@profileid,@scopeid)";
+        foreach ( var item in selectedScopes)
+        {
+            var queryArguments = new {
+                profileid = ProfileId,
+                scopeid = item.Id
+            };
+            Console.WriteLine(queryArguments);
+            await pgConnection.ExecuteAsync(sql,queryArguments);
+        }
+        ds.Close();
+    }  
+     private async Task GetScopes()
+    {
+        var dbConn = Configuration["POCSCOPES_connectionstrings:db"];
+        var pgConnection = new NpgsqlConnection(dbConn);
+        pgConnection.Open();
+
+        string sql = "select * from scopes";
+
+        DBScopes = await pgConnection.QueryAsync<Scope>(sql);
+    }      
+}

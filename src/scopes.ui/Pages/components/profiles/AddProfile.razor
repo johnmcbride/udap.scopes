@@ -1,0 +1,33 @@
+@page "/addprofile"
+@using Npgsql
+@using Dapper
+@inject Radzen.DialogService ds
+@inject IConfiguration Configuration
+
+<h1>Add New Profile</h1>
+<MudTextField @bind-Value="@ProfileName" Label="Profile Name"></MudTextField>
+<MudTextField @bind-Value="@ProfileDescription" Label="Profile Description"></MudTextField>
+<MudButton Variant="MudBlazor.Variant.Filled" Color="Color.Primary" @onclick="SaveProfile">Add Profile</MudButton>
+
+@code 
+{
+    public string ProfileName { get; set; }
+    public string ProfileDescription { get; set; }
+    public async Task SaveProfile()
+    {
+        var dbConn = Configuration["POCSCOPES_connectionstrings:db"];
+        var pgConnection = new NpgsqlConnection(dbConn);
+        pgConnection.Open();
+
+        string sql = $"insert into profiles (name,description) values (@name,@description)";
+
+        var queryArguments = new {
+            name = ProfileName,
+            description = ProfileDescription
+        };
+
+        await pgConnection.ExecuteAsync(sql,queryArguments);
+
+        ds.Close(false);
+    }
+}

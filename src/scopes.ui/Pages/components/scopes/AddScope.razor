@@ -1,0 +1,35 @@
+@using Npgsql
+@using Dapper
+@inject Radzen.DialogService ds
+@inject IConfiguration Configuration
+
+<MudTextField @bind-Value="@ScopeName" Label="Scope Name"></MudTextField>
+<MudTextField @bind-Value="@ScopeSpec" Label="Scope Spec"></MudTextField>
+<MudTextField @bind-Value="@ScopeDescription" Label="Scope Description"></MudTextField>
+<MudButton Variant="MudBlazor.Variant.Filled" Color="Color.Primary" @onclick="SaveScope">Save</MudButton>
+
+@code
+{
+    public string ScopeName { get; set;}
+    public string ScopeSpec { get; set; }
+    public string ScopeDescription { get; set; }
+    public async Task SaveScope()
+    {
+        var dbConn = Configuration["POCSCOPES_connectionstrings:db"];
+        var pgConnection = new NpgsqlConnection(dbConn);
+        pgConnection.Open();
+
+        string sql = $"insert into scopes (name,scopespec,description) values (@name,@scopespec,@description)";
+
+        var queryArguments = new {
+            name = ScopeName,
+            scopespec = ScopeSpec,
+            description = ScopeDescription
+        };
+
+        await pgConnection.ExecuteAsync(sql,queryArguments);
+
+        ds.Close(false);
+    }
+    
+}

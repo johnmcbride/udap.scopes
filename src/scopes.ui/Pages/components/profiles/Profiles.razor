@@ -1,0 +1,87 @@
+@page "/profiles"
+@using Npgsql
+@using Dapper
+@inject NavigationManager Navigation
+@inject Radzen.DialogService DialogService
+@inject Radzen.NotificationService NotificationService
+@inject IConfiguration Configuration
+
+<RadzenDataGrid Data="@DBProfiles" TItem="Profile" ExpandMode="DataGridExpandMode.Single">
+    <HeaderTemplate>
+        <RadzenButton Text="Add Profile" Click="@AddProfile" />
+    </HeaderTemplate>
+    <Template Context="profile">
+         <RadzenCard Style="margin-bottom:20px">
+            Scopes for Profile:
+            <b>@profile.Name</b>
+        </RadzenCard>
+        <RadzenDataGrid Data="@profile.ProfileScopes" TItem="Scope">
+            <HeaderTemplate>
+                <RadzenButton Click="@(e => MapScopes(profile.Id))" Icon="add" ButtonStyle="ButtonStyle.Primary" Size="ButtonSize.Large" class="rz-border-radius-10 rz-shadow-10"/>
+            </HeaderTemplate>
+            <EmptyTemplate>
+                <p style="color: lightgrey; font-size: 24px; text-align: center; margin: 2rem;">No records to display.</p>
+            </EmptyTemplate>
+            <Columns>
+                <RadzenDataGridColumn TItem="Scope" Property="Id" Title="Scope ID"></RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Scope" Property="Name" Title="Scope Name"></RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Scope" Property="ScopeSpec" Title="Scope Spec"></RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="Scope" Property="Description" Title="Scope Description"></RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </Template>
+    <Columns>
+        <RadzenDataGridColumn TItem="Profile" Property="Id" Title="Profile ID"></RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Profile" Property="Name" Title="Profile Name"></RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Profile" Property="Description" Title="Profile Description"></RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+ 
+@code {
+    public IEnumerable<Profile> DBProfiles { get; set; }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await GetProfiles();
+    }
+    public async Task<IEnumerable<Scope>> FilterScopes(int profileid )
+    {
+        var dbConn = Configuration["POCSCOPES_connectionstrings:db"];
+        var pgConnection = new NpgsqlConnection(dbConn);
+    
+        pgConnection.Open();
+
+        string sql = $"SELECT p2s.profileid,scopes.* FROM profile2scopes p2s JOIN scopes ON p2s.scopeid = scopes.id WHERE p2s.profileid = {profileid}";
+
+        return await pgConnection.QueryAsync<Scope>(sql);
+    }
+    private async Task MapScopes(int profileid)
+    {
+        await DialogService.OpenAsync<Scope2Profile>("Profile Mapping",
+            new Dictionary<string, object>(){{"ProfileId",profileid}});
+    }
+    private async Task AddProfile()
+    {
+        await DialogService.OpenAsync<AddProfile>("Profiles");
+        await GetProfiles();
+        NotificationService.Notify(
+            new NotificationMessage { 
+                Severity = NotificationSeverity.Info, 
+                Summary = "Info", 
+                Detail = "New profile added" });
+    }
+    private async Task GetProfiles()
+    {
+        var dbConn = Configuration["POCSCOPES_connectionstrings:db"];
+        var pgConnection = new NpgsqlConnection(dbConn);
+        pgConnection.Open();
+
+        string sql = "select * from profiles";
+
+        DBProfiles = await pgConnection.QueryAsync<Profile>(sql);
+        foreach (var profile in DBProfiles)
+        {
+            profile.ProfileScopes = await FilterScopes(profile.Id);
+        }
+    }
+}

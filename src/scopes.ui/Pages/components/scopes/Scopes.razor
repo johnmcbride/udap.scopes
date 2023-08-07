@@ -1,0 +1,50 @@
+@page "/allscopes"
+@using Npgsql
+@using Dapper
+@inject Radzen.DialogService DialogService
+@inject Radzen.NotificationService NotificationService
+@inject IConfiguration Configuration
+
+<RadzenDataGrid Data="@DBScopes" TItem="Scope" ExpandMode="DataGridExpandMode.Single">
+    <HeaderTemplate>
+        <RadzenButton Text="Add Scope" Click="@AddScope" />
+    </HeaderTemplate>
+    <Columns>
+        <RadzenDataGridColumn TItem="Scope" Property="Id" Title="Scope ID"></RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Scope" Property="Name" Title="Scope Name"></RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Scope" Property="ScopeSpec" Title="Scope Spec"></RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Scope" Property="Description" Title="Scope Description"></RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+    
+@code
+{
+    public IEnumerable<Scope> DBScopes { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        await GetScopes();
+    }
+    public async Task AddScope()
+    {
+        await DialogService.OpenAsync<AddScope>("Add new scope");
+        await GetScopes();
+        NotificationService.Notify(
+            new NotificationMessage { 
+                Severity = NotificationSeverity.Info, 
+                Summary = "Info", 
+                Detail = "New scope added" 
+            }
+        );
+    }  
+     private async Task GetScopes()
+    {
+        var dbConn = Configuration["POCSCOPES_connectionstrings:db"];
+        var pgConnection = new NpgsqlConnection(dbConn);
+        pgConnection.Open();
+
+        string sql = "select * from scopes";
+
+        DBScopes = await pgConnection.QueryAsync<Scope>(sql);
+    }      
+    
+}
